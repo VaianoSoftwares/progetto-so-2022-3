@@ -1,0 +1,4 @@
+*.pdf
+/bin
+/log
+/obj
