@@ -30,7 +30,11 @@ OUTPUT_BIN = output
 # target senza regole
 .PHONY: clean
 
-$(BIN_DIR)/input: $(OBJ_DIR)/input.o
+$(BIN_DIR)/input: $(OBJ_DIR)/input.o $(OBJ_DIR)/error.o $(OBJ_DIR)/ecu_connector.o
+	mkdir -p $(dir $@)
+	$(CC) $< -o $@ $(LINK_FLAG)
+
+$(BIN_DIR)/output: $(OBJ_DIR)/output.o $(OBJ_DIR)/error.o $(OBJ_DIR)/ecu_connector.o
 	mkdir -p $(dir $@)
 	$(CC) $< -o $@ $(LINK_FLAG)
 
@@ -42,6 +46,6 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 # usage: make clean
 # eliminazione file: oggetto, eseguibili, dipendenze, log e segmento
 clean:
-	rm -rf bin obj log tmp &> /dev/null
+	rm -rf bin obj log &> /dev/null
 
 -include $(DEPS)

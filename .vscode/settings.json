@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "*.h": "c",
+        "*.ipp": "c",
+        "cstdio": "c",
+        "any": "c",
+        "*.tcc": "c",
+        "list": "c",
+        "deque": "c",
+        "string": "c",
+        "vector": "c",
+        "functional": "c",
+        "__config": "c",
+        "__hash_table": "c",
+        "__tree": "c",
+        "algorithm": "c",
+        "filesystem": "c",
+        "format": "c",
+        "map": "c",
+        "set": "c",
+        "string_view": "c",
+        "typeinfo": "c",
+        "unordered_map": "c",
+        "unordered_set": "c",
+        "*.inc": "c",
+        "__debug": "c",
+        "fstream": "cpp",
+        "ctime": "c",
+        "chrono": "c",
+        "condition_variable": "c",
+        "mutex": "c"
+    }
+}

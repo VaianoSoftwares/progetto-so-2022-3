@@ -9,9 +9,9 @@
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c17",
+            "cStandard": "gnu17",
             "cppStandard": "c++14",
-            "intelliSenseMode": "macos-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
