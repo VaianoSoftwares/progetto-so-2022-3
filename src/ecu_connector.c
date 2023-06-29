@@ -1,11 +1,14 @@
+#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #include "ecu_connector.h"
+#include "error.h"
 
-int connect_to_ECU(component_type_t component)
+int connect_to_ECU()
 {
     // indirizzo server
     struct sockaddr_un server_addr;
@@ -23,23 +26,29 @@ int connect_to_ECU(component_type_t component)
 
     // opzioni socket
     server_addr.sun_family = AF_UNIX;
-    strcpy(server_addr.sun_path, ECU_SERVER);
+    strcpy(server_addr.sun_path, SERVER_NAME);
 
     // client tenta connessione ad ECU
-    int server_fd;
+    int connected;
     do
     {
-        server_fd = connect(client_fd, server_addr_ptr, server_len);
-        if (server_fd == -1)
+        connected = connect(client_fd, server_addr_ptr, server_len);
+        if (connected == -1)
             sleep(1);
-    } while (server_fd == -1);
+    } while (connected == -1);
 
-    char req_buf[16] = {0};
+    return client_fd;
+}
 
-    snprintf(req_buf, "%d %d", component, getpid());
+int connect_and_send_info_to_ECU(ComponentType component)
+{
+    int client_fd = connect_to_ECU();
+
+    char buf[BUF_SIZE] = {0};
+    snprintf(buf, sizeof(buf), "%d %d", component, getpid());
 
     // client invia a ECU il proprio pid ed il tipo di componente
-    if (send(server_fd, req_buf, strlen(req_buf), 0) == -1)
+    if (send(client_fd, buf, strlen(buf) + 1, 0) == -1)
         throw_err("connect_to_ECU | send");
 
     return client_fd;

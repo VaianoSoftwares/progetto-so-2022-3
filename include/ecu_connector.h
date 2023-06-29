@@ -1,3 +1,6 @@
+#pragma once
+
 #include "headers.h"
 
-int connect_to_ECU(component_type_t component);
+extern int connect_to_ECU();
+extern int connect_and_send_info_to_ECU(ComponentType component);

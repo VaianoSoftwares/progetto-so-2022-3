@@ -7,8 +7,7 @@
 #define PARK_ASSIST_LOG "log/parking.log"
 #define SORROUND_VIEW_CAMERAS_LOG "log/cameras.log"
 #define ECU_LOG "log/ECU.log"
-#define SHM_NAME "/tmp/veicolo_data"
-#define SERVER_NAME "/tmp/ECU"
+#define SHM_NAME "veh_speed_shm"
 #define FRONT_CAMERA_DATA "data/frontCamera.data"
 #define THROTTLE_CMD "INCREMENTO 5"
 #define BRAKE_CMD "FRENO 5"
@@ -23,36 +22,17 @@
 #define COMPONENT_UPD_SEC_DELAY 1
 #define PARKING_TIMEOUT 30
 #define OPEN_FILE_MODE 0666
-#define PROB_BROKEN_THROTTLE 0.00001
+#define PROB_BROKEN_THROTTLE 10000
 
-typedef enum exec_modes_t
+typedef enum ExecModeType
 {
-    NORMALE,
-    ARTIFICIALE
-} exec_modes_t;
+    EM_NORMALE,
+    EM_ARTIFICIALE
+} ExecModeType;
 
-typedef enum vehicle_state_t
+typedef enum SteerStateType
 {
-    IDLE,
-    MOVING,
-} vehicle_state_t;
-
-typedef enum steer_state_t
-{
-    RIGHT,
-    LEFT,
-    NO_ACTION
-} steer_state_t;
-
-typedef struct component_t
-{
-    struct sockaddr_un addr;
-    int sock_fd;
-    pid_t pid;
-} component_t;
-
-typedef struct vehicle_t
-{
-    unsigned speed;
-    component_t components[N_CONN];
-} vehicle_t;
+    SS_RIGHT,
+    SS_LEFT,
+    SS_NO_ACTION
+} SteerStateType;

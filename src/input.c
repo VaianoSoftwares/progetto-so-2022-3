@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <stdbool.h>
+#include <sys/socket.h>
+
 #include "headers.h"
 #include "error.h"
 #include "ecu_connector.h"
@@ -8,7 +12,7 @@
 int main()
 {
     // connessione ad ECU server
-    const int client_fd = connect_to_ECU(INPUT);
+    const int client_fd = connect_and_send_info_to_ECU(CMP_INPUT);
 
     char input_buffer[BUF_SIZE] = {0};
 

@@ -1,5 +1,3 @@
-# usage: make
-
 # compilatore
 CC = gcc
 
@@ -14,7 +12,8 @@ INCL_FLAG = $(addprefix -I,$(INCL_DIR))
 CFLAGS = $(INCL_FLAG) -MMD -MP -g
 
 # flag linker
-LINK_FLAG = -lrt
+LINK_FLAG_FRONT = -Wall -Werror
+LINK_FLAG_BACK = -lrt
 
 # path file sorgente
 SRCS := $(shell find $(SRC_DIR) -name '*.c')
@@ -23,6 +22,12 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 # path file dipendenze
 DEPS := $(OBJS:.o=.d)
 
+# lista oggetti per linking
+_INPUT_OBJS = input error ecu_connector
+INPUT_OBJS = $(_INPUT_OBJS:%=$(OBJ_DIR)/%.o)
+_OUTPUT_OBJS = output error ecu_connector
+OUTPUT_OBJS = $(_OUTPUT_OBJS:%=$(OBJ_DIR)/%.o)
+
 # nome file eseguibili
 INPUT_BIN = input
 OUTPUT_BIN = output
@@ -30,13 +35,19 @@ OUTPUT_BIN = output
 # target senza regole
 .PHONY: clean
 
-$(BIN_DIR)/input: $(OBJ_DIR)/input.o $(OBJ_DIR)/error.o $(OBJ_DIR)/ecu_connector.o
-	mkdir -p $(dir $@)
-	$(CC) $< -o $@ $(LINK_FLAG)
+# usage: make
+# creazione file eseguibili
+all: $(BIN_DIR)/$(INPUT_BIN) $(BIN_DIR)/$(OUTPUT_BIN)
 
-$(BIN_DIR)/output: $(OBJ_DIR)/output.o $(OBJ_DIR)/error.o $(OBJ_DIR)/ecu_connector.o
+# creazione file eseguibile input
+$(BIN_DIR)/$(INPUT_BIN): $(INPUT_OBJS)
 	mkdir -p $(dir $@)
-	$(CC) $< -o $@ $(LINK_FLAG)
+	$(CC) $(LINK_FLAG_FRONT) $(INPUT_OBJS) -o $@ $(LINK_FLAG_BACK)
+
+# creazione file eseguibile output
+$(BIN_DIR)/$(OUTPUT_BIN): $(OUTPUT_OBJS)
+	mkdir -p $(dir $@)
+	$(CC) $(LINK_FLAG_FRONT) $(OUTPUT_OBJS) -o $@ $(LINK_FLAG_BACK)
 
 # compilazione file sorgente
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
