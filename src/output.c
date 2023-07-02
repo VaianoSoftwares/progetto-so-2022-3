@@ -337,13 +337,13 @@ void ECU_serve_req(FILE *log_fp)
                     break;
 
                 // comando è INIZIO, i componenti vengono abilitati
-                if (!strncmp(str_buf, START_CMD, strlen(START_CMD)))
+                if (!strcmp(str_buf, START_CMD))
                     ECU_enable_components();
                 // comando è PARCHEGGIO
-                else if (!strncmp(str_buf, PARKING_CMD, strlen(PARKING_CMD)))
+                else if (!strcmp(str_buf, PARKING_CMD))
                     return;
                 // comando è ARRESTO
-                else if (!strncmp(str_buf, STOP_CMD, strlen(STOP_CMD)))
+                else if (!strcmp(str_buf, STOP_CMD))
                 {
                     // ECU invia segnale di ARRESTO a BRAKE_BY_WIRE
                     kill(comp_pids[CMP_BRAKE_BY_WIRE], SIGUSR2);
@@ -419,13 +419,13 @@ void ECU_serve_req(FILE *log_fp)
                     break;
 
                 // comando è DESTRA
-                if (!strncmp(str_buf, STEER_CMDS[SS_RIGHT], strlen(STEER_CMDS[SS_RIGHT])))
+                if (!strcmp(str_buf, STEER_CMDS[SS_RIGHT]))
                     target_steer = SS_RIGHT;
                 // comando è SINISTRA
-                else if (!strncmp(str_buf, STEER_CMDS[SS_LEFT], strlen(STEER_CMDS[SS_LEFT])))
+                else if (!strcmp(str_buf, STEER_CMDS[SS_LEFT]))
                     target_steer = SS_LEFT;
                 // comando è PERICOLO
-                else if (!strncmp(str_buf, DANGER_CMD, strlen(DANGER_CMD)))
+                else if (!strcmp(str_buf, DANGER_CMD))
                 {
                     // ECU invia segnale di ARRESTO a BRAKE_BY_WIRE
                     kill(comp_pids[CMP_BRAKE_BY_WIRE], SIGUSR2);
@@ -438,7 +438,7 @@ void ECU_serve_req(FILE *log_fp)
                     ECU_disable_components();
                 }
                 // comando è PARCHEGGIO
-                else if (!strncmp(str_buf, PARKING_CMD, strlen(PARKING_CMD)))
+                else if (!strcmp(str_buf, PARKING_CMD))
                     return;
                 // comando è un intero che rappresenta la velocità desiderata
                 else
@@ -600,7 +600,7 @@ void steer_by_wire()
         if (timer_sec_passed(steer_timer) >= STEER_TIMEOUT)
         {
             // assegnazione stato corrente di steer_by_wire
-            if (!strncmp(res_buf, STEER_CMDS[SS_RIGHT], strlen(STEER_CMDS[SS_RIGHT])))
+            if (!strcmp(res_buf, STEER_CMDS[SS_RIGHT]))
             {
                 // aggiornamento timer, sarà possibile riaccedere a questa routine
                 // tra minimo 4 secondi
@@ -608,7 +608,7 @@ void steer_by_wire()
 
                 steer_action = SS_RIGHT;
             }
-            else if (!strncmp(res_buf, STEER_CMDS[SS_LEFT], strlen(STEER_CMDS[SS_LEFT])))
+            else if (!strcmp(res_buf, STEER_CMDS[SS_LEFT]))
             {
                 // aggiornamento timer, sarà possibile riaccedere a questa routine
                 // tra minimo 4 secondi
@@ -662,17 +662,19 @@ void throttle_control()
             continue;
 
         // verifica se il comando è corretto, altrimenti passa all'iterazione successiva
-        if (strncmp(res_buf, THROTTLE_CMD, strlen(THROTTLE_CMD)))
+        if (strcmp(res_buf, THROTTLE_CMD))
             continue;
 
         // se l'acceleratore è rotto allora invia un segnale di pericolo a ECU server
         if (throttle_is_broken())
             kill(getppid(), SIGUSR1);
-
-        // aggiornamento velocità veicolo
-        *veh_speed += SPEED_DELTA;
-        fprintf(log_fp, "%.24s:" THROTTLE_CMD "\n", timestamp());
-        fflush(log_fp);
+        else
+        {
+            // incremento velocità veicolo
+            *veh_speed += SPEED_DELTA;
+            fprintf(log_fp, "%.24s:" THROTTLE_CMD "\n", timestamp());
+            fflush(log_fp);
+        }
     }
 
     // rilascio risorse
@@ -711,9 +713,10 @@ void brake_by_wire()
             continue;
 
         // se comando è FRENO 5 allora decrementa di 5 velocità e aggiorna log
-        if (strncmp(res_buf, BRAKE_CMD, strlen(BRAKE_CMD)))
+        if (strcmp(res_buf, BRAKE_CMD))
             continue;
 
+        // decremento velocità veicolo
         *veh_speed = (*veh_speed < SPEED_DELTA) ? 0 : *veh_speed - SPEED_DELTA;
         fprintf(log_fp, "%.24s:" BRAKE_CMD "\n", timestamp());
         fflush(log_fp);
@@ -843,7 +846,7 @@ void park_assist()
         if (read_has_failed(n_bytes_read))
             throw_err("park assist | recv");
         // se riceve PARCHEGGIO allora avvia la procedura di parcheggio
-        else if (n_bytes_read > 0 && !strncmp(buf, PARKING_CMD, strlen(PARKING_CMD)))
+        else if (n_bytes_read > 0 && !strcmp(buf, PARKING_CMD))
         {
             // viene creato processo sorround_view_cameras
             // solo la prima volta viene ricevuto il comando PARCHEGGIO
@@ -994,7 +997,7 @@ char *timestamp()
 // tra il tempo attuale e l'input
 int timer_sec_passed(clock_t timer)
 {
-    return (int)(((double)(clock() - timer)) / CLOCKS_PER_SEC);
+    return (int)((clock() - timer) / CLOCKS_PER_SEC);
 }
 
 // funzione con la probabilità di 1/10^5 che ritorni vero
