@@ -353,7 +353,7 @@ void ECU_serve_req(FILE *log_fp)
                     printf("%.24s:" STOP_CMD "\n", timestamp());
                 }
 
-                // printf("ECU received %s (%ld nbytes) from input\n", str_buf, n_bytes_read);
+                printf("ECU received %s (%ld nbytes) from input\n", str_buf, n_bytes_read);
 
                 break;
             case CMP_STEER_BY_WIRE:
@@ -419,10 +419,7 @@ void ECU_serve_req(FILE *log_fp)
 
                 // comando è DESTRA
                 if (!strncmp(str_buf, STEER_CMDS[SS_RIGHT], strlen(STEER_CMDS[SS_RIGHT])))
-                {
                     target_steer = SS_RIGHT;
-                    printf("received %s (%ld nbytes) from camera\n", str_buf, n_bytes_read);
-                }
                 // comando è SINISTRA
                 else if (!strncmp(str_buf, STEER_CMDS[SS_LEFT], strlen(STEER_CMDS[SS_LEFT])))
                     target_steer = SS_LEFT;
@@ -446,8 +443,8 @@ void ECU_serve_req(FILE *log_fp)
                 else
                     sscanf(str_buf, "%hu", &target_speed);
 
-                // printf("ECU received %s (%ld nbytes) from camera\n", str_buf, n_bytes_read);
-                // printf("Current Speed: %hu - Target Speed: %hu\n", *veh_speed, target_speed);
+                printf("ECU received %s (%ld nbytes) from camera\n", str_buf, n_bytes_read);
+                printf("Current Speed: %hu - Target Speed: %hu\n", *veh_speed, target_speed);
 
                 break;
             case CMP_RADAR:
