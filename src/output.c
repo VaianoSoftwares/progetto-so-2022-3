@@ -305,7 +305,8 @@ void ECU_serve_req(FILE *log_fp)
     // azione di sterzata attualmente richiesta
     SteerActionType target_steer = SS_NO_ACTION;
 
-    char str_buf[BUF_SIZE] = {0};
+    char str_buf[BUF_SIZE] = {0}, *end_str = NULL;
+
     unsigned long hex_buf = 0UL;
     ssize_t n_bytes_read;
 
@@ -746,39 +747,34 @@ void front_windshield_camera()
     // connessione al server ECU
     int client_fd = connect_and_send_info_to_ECU(CMP_FRONT_CAMERA);
 
-    char *req_buf = NULL;
-    size_t req_buf_len = BUF_SIZE;
-    ssize_t n_bytes_read;
+    char buf[BUF_SIZE], *end_str = NULL;
 
-    while (true)
+    // lettura linea dal file dati
+    while (fgets(buf, sizeof(buf), data_fp))
     {
-        // lettura linea del file dati
-        // se EOF allora termina esecuzione componente
-        n_bytes_read = getline(&req_buf, &req_buf_len, data_fp);
-        if (n_bytes_read == -1 && (errno == EINVAL || errno == ENOMEM))
-            throw_err("front_windshield_camera | getline");
-        // EOF
-        else if (n_bytes_read == -1)
-            break;
-
-        req_buf[n_bytes_read - 1] = 0;
+        // rimozione line feed dal buf
+        end_str = strchr(buf, '\n');
+        if (end_str)
+            *end_str = '\0';
 
         // invio a server ECU
-        if ((send(client_fd, req_buf, strlen(req_buf) + 1, 0)) == -1)
+        if ((send(client_fd, buf, strlen(buf) + 1, 0)) == -1)
             throw_err("front_windshield_camera | send");
 
         // aggiorna log
-        fprintf(log_fp, "%.24s:%s\n", timestamp(), req_buf);
+        fprintf(log_fp, "%.24s:%s\n", timestamp(), buf);
         fflush(log_fp);
 
         // invio dati con frequenza di 1 ciclo/sec
         sleep(COMPONENT_UPD_SEC_DELAY);
     }
 
+    if (!feof(data_fp) && ferror(data_fp))
+        throw_err("front_windshield_camera | ferror");
+
     fclose(log_fp);
     fclose(data_fp);
     close(client_fd);
-    free(req_buf);
 
     _exit(EXIT_SUCCESS);
 }

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdbool.h>
 #include <sys/socket.h>
 
 #include "lib.h"
@@ -14,13 +13,15 @@ int main()
     // connessione ad ECU server
     const int client_fd = connect_and_send_info_to_ECU(CMP_INPUT);
 
-    char buf[BUF_SIZE] = {0};
+    char buf[BUF_SIZE] = {0}, *end_str = NULL;
 
-    while (true)
+    // in attessa di un comando dell'utente
+    while (fgets(buf, sizeof(buf), stdin))
     {
-        // in attessa di un comando dell'utente
-        if (!fgets(buf, sizeof(buf), stdin))
-            continue;
+        // rimozione line feed dal buf
+        end_str = strchr(buf, '\n');
+        if (end_str)
+            *end_str = '\0';
 
         // invia comando ad ECU server
         if (send(client_fd, buf, strlen(buf), 0) == -1)
@@ -29,5 +30,5 @@ int main()
 
     close(client_fd);
 
-    return EXIT_SUCCESS;
+    return EXIT_FAILURE;
 }
