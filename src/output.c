@@ -121,6 +121,7 @@ int central_ECU()
     if (!log_fp)
         throw_err("central_ECU | fopen");
 
+    // routine di gestione componenti
     ECU_serve_req(log_fp);
 
     // imposta la velocità a 0
@@ -136,6 +137,7 @@ int central_ECU()
     if (shm_unlink(SHM_NAME) == -1)
         throw_err("central_ECU | shm_unlink");
 
+    // routine di gestione di PARK_ASSIST
     ECU_parking(server_fd, log_fp);
 
     // terminazione di tutti i componenti
@@ -339,7 +341,7 @@ void ECU_serve_req(FILE *log_fp)
                     printf("%.24s:" STOP_CMD "\n", timestamp());
                 }
 
-                printf("received %s (%ld nbytes) from input\n", str_buf, n_bytes_read);
+                // printf("ECU received %s (%ld nbytes) from input\n", str_buf, n_bytes_read);
 
                 break;
             case CMP_STEER_BY_WIRE:
@@ -425,10 +427,10 @@ void ECU_serve_req(FILE *log_fp)
                     return;
                 // comando è un intero che rappresenta la velocità desiderata
                 else
-                {
                     sscanf(str_buf, "%hu", &target_speed);
-                    printf("current speed: %hu - target speed: %hu\n", *veh_speed, target_speed);
-                }
+
+                // printf("ECU received %s (%ld nbytes) from camera\n", str_buf, n_bytes_read);
+                // printf("Current Speed: %hu - Target Speed: %hu\n", *veh_speed, target_speed);
 
                 break;
             case CMP_RADAR:
@@ -483,15 +485,15 @@ void ECU_stop_vehicle(FILE *log_fp)
 void ECU_parking(int server_fd, FILE *log_fp)
 {
     // creazione componente PARK_ASSIST
-    const pid_t pid = fork();
-    if (!pid)
+    const pid_t assist_pid = fork();
+    if (!assist_pid)
     {
         close(server_fd);
         fclose(log_fp);
 
         park_assist();
     }
-    else if (pid == -1)
+    else if (assist_pid == -1)
         throw_err("ECU_parking | fork");
 
     // PARK_ASSIST si connette ad ECU
@@ -507,22 +509,28 @@ void ECU_parking(int server_fd, FILE *log_fp)
 
     unsigned long hex_buf = 0UL;
     ssize_t n_bytes_read;
-    clock_t parking_timer = clock();
 
-    while (timer_sec_passed(parking_timer) < PARKING_TIMEOUT)
+    pid_t dead_proc;
+    int assist_exit_status;
+
+    while (true)
     {
+        // se PARK_ASSIST termina con successo allora il loop si interrompe
+        if ((dead_proc = waitpid(assist_pid, &assist_exit_status, WNOHANG)) == -1)
+            throw_err("ECU_parking | waitpid");
+        else if (dead_proc == assist_pid && assist_exit_status == EXIT_SUCCESS)
+            break;
+
         // in attesa di ricezione dati da PARK_ASSIST
         n_bytes_read = recv(client_fd, &hex_buf, sizeof(hex_buf), 0);
         if (read_has_failed(n_bytes_read))
             throw_err("ECU_parking | recv");
         // se riceve dati e corrispondono a parking_values
         // allora ECU invia comando PARCHEGGIO a PARK_ASSIST
-        else if (n_bytes_read < N_BYTES || !reset_parking(hex_buf))
-            continue;
+        else if (n_bytes_read >= N_BYTES && reset_parking(hex_buf))
+            send_parking_cmd(client_fd, log_fp);
 
-        send_parking_cmd(client_fd, log_fp);
-
-        parking_timer = clock();
+        // printf("ECU received %#lx (%ld nbytes) from park_assist\n", hex_buf, n_bytes_read);
     }
 
     close(client_fd);
@@ -796,7 +804,7 @@ void park_assist()
     // connessione al server ECU
     int client_fd = connect_to_ECU();
 
-    char res_buf[BUF_SIZE] = {0};
+    char buf[BUF_SIZE] = {0};
     ssize_t n_bytes_read;
     bool parking = false;
     clock_t parking_timer = 0, log_timer = 0;
@@ -805,11 +813,11 @@ void park_assist()
     while (!parking || timer_sec_passed(parking_timer) < PARKING_TIMEOUT)
     {
         // riceve un comando da ECU server
-        n_bytes_read = recv(client_fd, res_buf, sizeof(res_buf), 0);
+        n_bytes_read = recv(client_fd, buf, sizeof(buf), 0);
         if (read_has_failed(n_bytes_read))
             throw_err("park assist | recv");
         // se riceve PARCHEGGIO allora avvia la procedura di parcheggio
-        else if (n_bytes_read > 0 && !strncmp(res_buf, PARKING_CMD, strlen(PARKING_CMD)))
+        else if (n_bytes_read > 0 && !strncmp(buf, PARKING_CMD, strlen(PARKING_CMD)))
         {
             // viene creato processo sorround_view_cameras
             // solo la prima volta viene ricevuto il comando PARCHEGGIO

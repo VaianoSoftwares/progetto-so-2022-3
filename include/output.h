@@ -4,7 +4,7 @@
 #define BRAKE_BY_WIRE_LOG "log/brake.log"
 #define FRONT_CAMERA_LOG "log/camera.log"
 #define RADAR_LOG "log/radar.log"
-#define PARK_ASSIST_LOG "log/parking.log"
+#define PARK_ASSIST_LOG "log/assist.log"
 #define SORROUND_VIEW_CAMERAS_LOG "log/cameras.log"
 #define ECU_LOG "log/ECU.log"
 #define SHM_NAME "veh_speed_shm"

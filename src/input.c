@@ -14,16 +14,16 @@ int main()
     // connessione ad ECU server
     const int client_fd = connect_and_send_info_to_ECU(CMP_INPUT);
 
-    char input_buffer[BUF_SIZE] = {0};
+    char buf[BUF_SIZE] = {0};
 
     while (true)
     {
         // in attessa di un comando dell'utente
-        if (!fgets(input_buffer, sizeof(input_buffer), stdin))
+        if (!fgets(buf, sizeof(buf), stdin))
             continue;
 
         // invia comando ad ECU server
-        if (send(client_fd, input_buffer, strlen(input_buffer), 0) == -1)
+        if (send(client_fd, buf, strlen(buf), 0) == -1)
             throw_err("INPUT | send");
     }
 
