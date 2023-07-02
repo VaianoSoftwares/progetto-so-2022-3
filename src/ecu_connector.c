@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "ecu_connector.h"
+#include "lib.h"
 #include "error.h"
 
 int connect_to_ECU()

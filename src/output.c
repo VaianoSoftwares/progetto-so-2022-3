@@ -17,14 +17,13 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
-#include "headers.h"
+#include "lib.h"
 #include "output.h"
 #include "error.h"
 #include "ecu_connector.h"
 
 static const char *EXEC_MODES[] = {"NORMALE", "ARTIFICIALE"};
 static const char *STEER_CMDS[] = {"DESTRA", "SINISTRA"};
-static const char *RANDOM[] = {"/dev/random", "data/randomARTIFICIALE.binary"};
 static const char *URANDOM[] = {"/dev/urandom", "data/urandomARTIFICIALE.binary"};
 
 static ExecModeType exec_mode;
@@ -86,6 +85,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+// routine principale di CENTRAL_ECU server
 int central_ECU()
 {
     // creazione folder log
@@ -148,6 +148,7 @@ int central_ECU()
     return EXIT_SUCCESS;
 }
 
+// creazione processi componenti
 void create_components()
 {
     pid_t pid;
@@ -204,6 +205,7 @@ void create_components()
         throw_err("create_components | fork");
 }
 
+// creazione ECU server socket
 int create_ECU_server()
 {
     struct sockaddr_un server_addr;
@@ -236,6 +238,10 @@ int create_ECU_server()
     return sock_fd;
 }
 
+// server ECU sta in ascolto per eventuali richieste di connessione da parte
+// dei componenti client, una votla instaurata una connessione con un client
+// egli invierà una serie di informazioni di autenticazione atte a stabilire
+// l'identità del client
 void ECU_listener(int server_fd)
 {
     ComponentType client_component;
@@ -290,10 +296,14 @@ void ECU_listener(int server_fd)
     }
 }
 
+// routine di gestione delle richieste dei client componenti da parte
+// del server ECU
 void ECU_serve_req(FILE *log_fp)
 {
+    // velocità desiderata
     unsigned short target_speed = *veh_speed;
-    SteerStateType target_steer = SS_NO_ACTION;
+    // azione di sterzata attualmente richiesta
+    SteerActionType target_steer = SS_NO_ACTION;
 
     char str_buf[BUF_SIZE] = {0};
     unsigned long hex_buf = 0UL;
@@ -303,11 +313,13 @@ void ECU_serve_req(FILE *log_fp)
 
     while (true)
     {
+        // polling per ciascun file descriptor delle client socket
         if (poll(pfds, N_CONN, -1) == -1)
             throw_err("ECU_serve_req | poll");
 
         for (int i = 0; i < N_CONN; i++)
         {
+            // nessun evento per il client "i", allora si passa all'iterazione successiva
             if (!pfds[i].revents)
                 continue;
             else if (pfds[i].revents & POLLERR)
@@ -345,6 +357,7 @@ void ECU_serve_req(FILE *log_fp)
 
                 break;
             case CMP_STEER_BY_WIRE:
+                // ECU invia comando se e solo se è richiesto di sterzare
                 if (target_steer == SS_NO_ACTION)
                     break;
 
@@ -361,6 +374,8 @@ void ECU_serve_req(FILE *log_fp)
 
                 break;
             case CMP_THROTTLE_CONTROL:
+                // ECU invia comando ogni secondo e se e solo se la velocità target è maggiore
+                // della velocità attuale
                 if (timer_sec_passed(speed_timer) < 1 || (*veh_speed) >= target_speed)
                     break;
 
@@ -377,6 +392,8 @@ void ECU_serve_req(FILE *log_fp)
 
                 break;
             case CMP_BRAKE_BY_WIRE:
+                // ECU invia comando ogni secondo e se e solo se la velocità target è minore
+                // della velocità attuale
                 if (timer_sec_passed(speed_timer) < 1 || (*veh_speed) <= target_speed)
                     break;
 
@@ -463,6 +480,7 @@ void ECU_disable_components()
     }
 }
 
+// ECU invia FRENO 5 a BRAKE_BY_WIRE finchè il veicolo non è fermo
 void ECU_stop_vehicle(FILE *log_fp)
 {
     // imposta velocità auto a 0
@@ -482,6 +500,7 @@ void ECU_stop_vehicle(FILE *log_fp)
     }
 }
 
+// routine di gestione del veicolo nello stato di parcheggio da parte di ECU
 void ECU_parking(int server_fd, FILE *log_fp)
 {
     // creazione componente PARK_ASSIST
@@ -536,6 +555,7 @@ void ECU_parking(int server_fd, FILE *log_fp)
     close(client_fd);
 }
 
+// ECU invia comando PARCHEGGIO a PARK_ASSIST e logga tale evento
 void send_parking_cmd(int client_fd, FILE *log_fp)
 {
     // ECU invia comando PARCHEGGIO a client
@@ -548,6 +568,8 @@ void send_parking_cmd(int client_fd, FILE *log_fp)
     printf("%.24s:" PARKING_CMD "\n", timestamp());
 }
 
+// attuatore il quale ogni volta riceve un comando da ECU
+// egli sterzerà il veicolo a destra o sinistra e loggerà tale evento
 void steer_by_wire()
 {
     static const char *steer_log_msgs[] = {"sto girando a destra",
@@ -564,7 +586,7 @@ void steer_by_wire()
 
     char res_buf[BUF_SIZE] = {0};
     clock_t steer_timer = 0, log_timer = 0;
-    SteerStateType steer_state = SS_NO_ACTION;
+    SteerActionType steer_action = SS_NO_ACTION;
     ssize_t n_bytes_read;
 
     while (true)
@@ -586,7 +608,7 @@ void steer_by_wire()
                 // tra minimo 4 secondi
                 steer_timer = clock();
 
-                steer_state = SS_RIGHT;
+                steer_action = SS_RIGHT;
             }
             else if (!strncmp(res_buf, STEER_CMDS[SS_LEFT], strlen(STEER_CMDS[SS_LEFT])))
             {
@@ -594,10 +616,10 @@ void steer_by_wire()
                 // tra minimo 4 secondi
                 steer_timer = clock();
 
-                steer_state = SS_LEFT;
+                steer_action = SS_LEFT;
             }
             else
-                steer_state = SS_NO_ACTION;
+                steer_action = SS_NO_ACTION;
         }
 
         // aggiornamento log ogni secondo
@@ -605,7 +627,7 @@ void steer_by_wire()
             continue;
 
         // aggiornamento log
-        fprintf(log_fp, "%.24s:%s\n", timestamp(), steer_log_msgs[steer_state]);
+        fprintf(log_fp, "%.24s:%s\n", timestamp(), steer_log_msgs[steer_action]);
         fflush(log_fp);
 
         log_timer = clock();
@@ -617,6 +639,8 @@ void steer_by_wire()
     _exit(EXIT_SUCCESS);
 }
 
+// attuatore il quale ogni volta riceve un comando da ECU
+// egli andrà ad incrementare la velocità del veicolo
 void throttle_control()
 {
     // apertura file di log
@@ -664,6 +688,8 @@ void throttle_control()
     _exit(EXIT_SUCCESS);
 }
 
+// attuatore il quale ogni volta riceve un comando da ECU
+// egli andrà a ridurre la velocità del veicolo
 void brake_by_wire()
 {
     // apertura file di log
@@ -706,6 +732,8 @@ void brake_by_wire()
     _exit(EXIT_SUCCESS);
 }
 
+// sensore che legge da un file una serie di possibili comandi
+// e li invia ad ECU
 void front_windshield_camera()
 {
     // apertura file di log
@@ -758,6 +786,7 @@ void front_windshield_camera()
     _exit(EXIT_SUCCESS);
 }
 
+// sensore che legge ed invia 8 byte ad ECU
 void forward_facing_radar()
 {
     // apertura file di log
@@ -787,6 +816,10 @@ void forward_facing_radar()
     _exit(EXIT_SUCCESS);
 }
 
+// componente creato da ECU all'occorrenza,
+// legge ed invia 8 byte ogni secondo ad ECU per 30 secondi
+// allo scadere dei quali termina almeno che non riceva un comando PARCHEGGIO
+// da ECU, in tal caso il timer viene resettato
 void park_assist()
 {
     // apertura file di log
@@ -862,6 +895,9 @@ void park_assist()
     _exit(EXIT_SUCCESS);
 }
 
+// sensore creato da PARK_ASSIST solo all'occorrenza
+// cioè durante uno stato di parcheggio
+// invia ogni secondo 8 byte ad ECU e logga tale evento
 void sorround_view_cameras(int client_fd)
 {
     // apertura file di log
@@ -888,6 +924,7 @@ void sorround_view_cameras(int client_fd)
     _exit(EXIT_SUCCESS);
 }
 
+// client invia 8 byte ad ECU e logga tale evento
 bool read_and_send_hex(int sock_fd, int data_fd, FILE *log_fp)
 {
     unsigned long hex_buf = 0UL;
@@ -931,6 +968,8 @@ void kill_all_children()
     signal(SIGQUIT, SIG_DFL);
 }
 
+// dato l'elenco dei pid dei componenti (figli di ECU)
+// si procede a inviare SIGKILL a quest'ultimi ed attende la loro terminazione
 void kill_all_components()
 {
     for (int i = 0; i < N_CONN; i++)
@@ -941,11 +980,16 @@ void kill_all_components()
     wait_children();
 }
 
+// stabilisce se una funzione non bloccante ha restituito un errore fatale,
+// in questo caso ritorna vero,
+// se invece l'errore riguarda il fatto che la lettura è stata incompleta
+// ritorna falso.
 bool read_has_failed(ssize_t return_value)
 {
     return return_value == -1 && errno != EWOULDBLOCK && errno != EAGAIN;
 }
 
+// restituisce una stringa che rappresenta il current timestamp
 char *timestamp()
 {
     const time_t now = time(NULL);
@@ -953,16 +997,23 @@ char *timestamp()
     return asctime(time_ptr);
 }
 
+// dato un certo numero di clocks, stabilisce quanti secondi di differenza c'è
+// tra il tempo attuale e l'input
 int timer_sec_passed(clock_t timer)
 {
     return (int)(((double)(clock() - timer)) / CLOCKS_PER_SEC);
 }
 
+// funzione con la probabilità di 1/10^5 che ritorni vero
 bool throttle_is_broken()
 {
     return !(rand() % PROB_BROKEN_THROTTLE);
 }
 
+// Funzione che imposta a zero la velocità corrente del veicolo,
+// termina tutti processi e conclude l'esecuzione del programma.
+// La funzione viene invocata da ECU se riceve un segnale
+// SIGUSR1 da parte di THROTTLE_CONTROL
 void broken_throttle_handler(int sig)
 {
     // arresto veicolo
@@ -995,6 +1046,9 @@ void broken_throttle_handler(int sig)
     exit(EXIT_FAILURE);
 }
 
+// funzione che imposta a zero la velocità corrente del veicolo
+// la funzione viene invocata da BRAKE_BY_WIRE se riceve un segnale
+// SIGUSR2 da parte di ECU
 void stop_vehicle_by_brake(int sig)
 {
     // arresto veicolo
@@ -1010,6 +1064,8 @@ void stop_vehicle_by_brake(int sig)
     fclose(log_fp);
 }
 
+// dato in input una sequenza di 8 byte ritorna vero se trova una delle possibili
+// sequenze di caratteri esadecimali all'interno della sequenza, ritorna falso altrimenti
 bool reset_parking(unsigned long data)
 {
     static const unsigned short parking_values[] = {0x172A,

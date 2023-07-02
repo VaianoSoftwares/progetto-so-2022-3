@@ -30,9 +30,9 @@ typedef enum ExecModeType
     EM_ARTIFICIALE
 } ExecModeType;
 
-typedef enum SteerStateType
+typedef enum SteerActionType
 {
     SS_RIGHT,
     SS_LEFT,
     SS_NO_ACTION
-} SteerStateType;
+} SteerActionType;
