@@ -1,0 +1,100 @@
+- HW e SW utilizzati
+
+    OS:             Arch Linux x86_64
+    Kernel:         6.3.7-arch1-1
+    Shell:          GNU bash, version 5.1.16(1)-release (x86_64-pc-linux-gnu)
+    Compilatore:    gcc version 13.1.1 20230429 (GCC)
+    Text Editor:    VSCodium
+    CPU:            Intel i5-2400 (4) @ 3.100GHz
+    GPU integrata:  Intel 2nd Generation Core Processor Family
+    GPU dedicata:   NVIDIA GeForce GTX 1050 Ti
+    Memoria:        11848MiB
+
+- Istruzioni compilazione
+
+    Compilatore utilizzato:     GCC
+    Flag compilazione:          -Iinclude -MMD -MP -g
+    Flag linking:               -Wall -Werror -lrt
+
+    Regola per generare i file oggetto,
+    le dipendenze richieste per la generazione dei file oggetto sono i file sorgenti:
+
+    # compilazione file sorgente
+    $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	    mkdir -p $(dir $@)
+	    $(CC) $(CFLAGS) -c $< -o $@
+
+    Regole per generare i file eseguibili, 
+    le dipendenze per la generazione dei file eseguibili sono i file oggetto
+    precedentemente generati durante la fase di compilazione:
+
+    # creazione file eseguibile input
+    $(BIN_DIR)/$(INPUT_BIN): $(INPUT_OBJS)
+	    mkdir -p $(dir $@)
+	    $(CC) $(LINK_FLAG_FRONT) $(INPUT_OBJS) -o $@ $(LINK_FLAG_BACK)
+
+    # creazione file eseguibile output
+    $(BIN_DIR)/$(OUTPUT_BIN): $(OUTPUT_OBJS)
+	    mkdir -p $(dir $@)
+	    $(CC) $(LINK_FLAG_FRONT) $(OUTPUT_OBJS) -o $@ $(LINK_FLAG_BACK)
+
+    Eseguire il comando "make" andrà a produrre i due eseguibili necessari al funzionamento del software, ./bin/input e ./bin/output.
+    Eseguire il comando "make clean" per eliminare file binari prodotti dalla compilazione e file di log del programma.
+
+- Dettagli implementativi
+
+    Il programma è composto da due eseguibili, input e output, ove il primo è la routine che rappresenta il componente
+    di input della HMI, mentre il secondo contiene tutto il resto della logica del programma cioè tutti i restanti componenti.
+
+    I tre principali metodi di comunicazione tra i processi coinvolti nell'esecuzione del programmano sono:
+        -   socket non bloccanti, questo perchè appunto CENTRAL_ECU è un polling server e gli altri componenti sono i client
+            in questa rete locale.
+        -   i segnali, alcuni esempi: quando THROTTLE_CONTROL fallisce nell'incremento della velocità egli invia un segnale di
+            pericolo a CENTRAL_ECU, oppure quando CENTRAL_ECU riceve un comando ARRESTO allora procede ad inviare un segnale
+            a BRAKE_BY_WIRE il quale fermerà il veicolo istantaneamente.
+        -   memoria condivisa, la variabile che contiene la velocità corrente del veicolo è contenuta in una memoria condivisa,
+            così che sia CENTRAL_ECU che gli attuatori possano aver accesso diretto sia in lettura che in scrittura di tale dato
+            durante tutta l'esecuzione.
+    
+    Dettagli sul funzionamento di CENTRAL_ECU:
+        Per prima cosa egli è il processo padre di tutti i componenti ad eccezione di HMI-INPUT, procede quindi a creare i
+        suddetti. A questo punto crea il socket del listener e sta in ascolto in attesa che tutti i componenti siano 
+        connessi al server. Ogni qual volta un componente tenta di connettersi, il server accetta la richiesta, ed il client
+        gli invia rispettivamente il proprio pid e rende nota la sua identità di componente. CENTRAL_ECU tiene traccia di queste
+        informazioni per ciascun client, oltre ovviamente al descrittore di file di ciascuna socket client.
+        Fatto ciò CENTRAL_ECU avvia la routine per gestire le richieste di tutti i componenti. Inizialmente CENTRAL_ECU
+        ignora qualunque richiesta ad eccezione di quelle da parte HMI-INPUT. Non appena riceve il comando INIZIO, CENTRAL_ECU
+        comincia ad accogliere qualunque richiesta. Il server è di tipo polling, vale a dire che letture e scritture sui
+        descrittori di file delle socket sono non bloccanti, ciò permette la realizzazione del server con un singolo processo.
+        Ad ogni iterazione controlla ciascun file descriptor di ciascun client per vedere se ha ricevuto qualche richiesta
+        o se deve inviare qualche richiesta. (Per l'elenco di come si va a gestire ciascuna richiesta leggere il testo del progetto
+        o i commenti nel codice sorgente o la parte degli elementi facoltativi) [....].
+
+
+- Elementi facoltativi
+
+1)  Realizzato: SI. Ogni qual volta THROTTLE_CONTROL riceve un comando da CENTRAL_ECU di richiesta di incremento della velocità del
+    veicolo, prima di fare ciò THROTTLE_CONTROL esegue una chiamata ad una funzione che restituisce 
+    il valore TRUE con una probabilità di 1/10^5, altrimenti ritorna falso.
+    Se il valore TRUE viene restituito allora THROTTLE_CONTROL invia un segnale SIGUSR1 a CENTRAL_ECU, il quale fermerà il veicolo
+    e terminerà ogni processo così come l'intera esecuzione del programma.
+
+2)  Realizzato: SI. CENTRAL_ECU crea un processo che rappresenta questo componente opzionale il quale 
+    legge da /dev/urandom 8 byte e li invia a CENTRAL_ECU con la frequenza di un secondo
+
+3)  Realizzato: SI. Quando CENTRAL_ECU riceve il comando PARCHEGGIO, egli procede a fermare il veicolo e successivamente a questo
+    termina tutti i processi e crea un nuovo processo che rappresenterà PARK_ASSIST e verrà avviata una routine speciale, apposta
+    per gestire la fase di parcheggio del veicolo.
+
+4)  Realizzato: SI. Leggere 3).
+
+5)  Realizzato: SI. PARK_ASSIST non appena riceve il comando PARCHEGGIO per la prima volta da CENTRAL_ECU, egli creerà un
+    sottoprocesso che esegue la routine per SORROUND_VIEW_CAMERAS. Questo processo avrà tra le risorse disponibili pure la socket
+    ereditata dal padre che utilizzerà per inviare i dati letti da /dev/urandom a CENTRAL_ECU.
+
+6)  Realizzato: SI. Leggere 5).
+
+7)  Realizzato: SI. Quando CENTRAL_ECU riceve il comando PARCHEGGIO egli immediatamente terminarà la routine che si occupa
+    di gestire le richieste dei componenti, il che implica che ignorerà ogni tipo di richiesta proveniente da quest'ultimi.
+
+8)  Realizzato: SI. Leggere 1).
