@@ -24,7 +24,7 @@ int main()
             *end_str = '\0';
 
         // invia comando ad ECU server
-        if (send(client_fd, buf, strlen(buf), 0) == -1)
+        if (send(client_fd, buf, strlen(buf) + 1, 0) == -1)
             throw_err("INPUT | send");
     }
 

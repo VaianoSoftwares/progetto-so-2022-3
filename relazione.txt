@@ -98,3 +98,308 @@
     di gestire le richieste dei componenti, il che implica che ignorerà ogni tipo di richiesta proveniente da quest'ultimi.
 
 8)  Realizzato: SI. Leggere 1).
+
+- Esempio esecuzione
+
+Inizialmente si aprono 2 terminali, nel primo viene eseguito il comando ./bin/output NORMALE, ./bin/input nel secondo.
+
+[output 1]
+[
+    [user@arch progetto-so]$ ./bin/output NORMALE
+    Tue Jul 11 12:00:46 2023: Programma avviato in modalita' NORMALE
+    Tue Jul 11 12:00:46 2023: ECU server in ascolto.
+    Tue Jul 11 12:00:46 2023: ECU ha stabilito connessione con componente 2
+    Tue Jul 11 12:00:46 2023: ECU ha stabilito connessione con componente 5
+    Tue Jul 11 12:00:46 2023: ECU ha stabilito connessione con componente 3
+    Tue Jul 11 12:00:46 2023: ECU ha stabilito connessione con componente 4
+    Tue Jul 11 12:00:47 2023: ECU ha stabilito connessione con componente 1
+    Tue Jul 11 12:01:01 2023: ECU ha stabilito connessione con componente 0
+    Tue Jul 11 12:01:01 2023: Tutti i componenti sono connessi al server.
+    Tue Jul 11 12:01:01 2023: ECU avvia la routine di servizio richieste dei client.
+]
+
+In [output 1] è mostrato ciò che viene stampato a video nel primo terminale, appunto il programma è avviato in modalità di
+esecuzione NORMALE, successivamente ECU crea il server e sta in ascolto in attesa che tutti i client siano connessi.
+Una volta stabilita la connessione con tutti i componenti, ECU avvia la routine di servizio delle richieste dei client.
+
+[output 2]
+[
+    Tue Jul 11 12:01:01 2023: ECU avvia la routine di servizio richieste dei client.
+    Tue Jul 11 12:01:08 2023: ECU received INIZIO (7 nbytes) from input
+    Tue Jul 11 12:01:08 2023: ECU received 50 (16 nbytes) from camera
+    Tue Jul 11 12:01:08 2023: Current Speed: 0 - Target Speed: 50
+    Tue Jul 11 12:01:08 2023: ECU received 0 (16 nbytes) from camera
+    Tue Jul 11 12:01:08 2023: Current Speed: 0 - Target Speed: 0
+    Tue Jul 11 12:01:08 2023: ECU received  (16 nbytes) from camera
+    Tue Jul 11 12:01:08 2023: Current Speed: 0 - Target Speed: 0
+    Tue Jul 11 12:01:08 2023: ECU received 50 (16 nbytes) from camera
+    Tue Jul 11 12:01:08 2023: Current Speed: 0 - Target Speed: 50
+]
+
+Non appena ECU riceve il comando INIZIO da INPUT, ECU smette di ignorare i dati ricevuti dai sensori ed incomincia a soddisfare
+le richieste dei client.
+
+[output 3]
+[
+    Tue Jul 11 12:01:09 2023: ECU received 50 (3 nbytes) from camera
+    Tue Jul 11 12:01:09 2023: Current Speed: 0 - Target Speed: 50
+    Tue Jul 11 12:01:09 2023:INCREMENTO 5
+    Tue Jul 11 12:01:10 2023: ECU received 50 (3 nbytes) from camera
+    Tue Jul 11 12:01:10 2023: Current Speed: 5 - Target Speed: 50
+    Tue Jul 11 12:01:10 2023:INCREMENTO 5
+    Tue Jul 11 12:01:11 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:11 2023: Current Speed: 10 - Target Speed: 40
+    Tue Jul 11 12:01:11 2023:INCREMENTO 5
+    Tue Jul 11 12:01:12 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:12 2023: Current Speed: 15 - Target Speed: 40
+    Tue Jul 11 12:01:13 2023:INCREMENTO 5
+    Tue Jul 11 12:01:13 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:13 2023: Current Speed: 20 - Target Speed: 40
+    Tue Jul 11 12:01:14 2023:INCREMENTO 5
+]
+
+[throttle.log 1]
+[
+    Tue Jul 11 12:01:09 2023:INCREMENTO 5
+    Tue Jul 11 12:01:10 2023:INCREMENTO 5
+    Tue Jul 11 12:01:11 2023:INCREMENTO 5
+    Tue Jul 11 12:01:13 2023:INCREMENTO 5
+    Tue Jul 11 12:01:14 2023:INCREMENTO 5
+    Tue Jul 11 12:01:15 2023:INCREMENTO 5
+]
+
+[camera.log 1]
+[
+    Tue Jul 11 12:01:09 2023:50
+    Tue Jul 11 12:01:10 2023:50
+    Tue Jul 11 12:01:11 2023:40
+    Tue Jul 11 12:01:12 2023:40
+]
+
+[ECU.log 1]
+[
+    Tue Jul 11 12:01:09 2023:INCREMENTO 5
+    Tue Jul 11 12:01:10 2023:INCREMENTO 5
+    Tue Jul 11 12:01:11 2023:INCREMENTO 5
+    Tue Jul 11 12:01:13 2023:INCREMENTO 5
+    Tue Jul 11 12:01:14 2023:INCREMENTO 5
+    Tue Jul 11 12:01:15 2023:INCREMENTO 5
+]
+
+Guardando [output 3] si può notare che la velocità corrente è 0, ma la velocità target è 50, quindi ECU invia
+diversi comandi INCREMENTO 5 a THROTTLE_CONTROL al fine di portare il veicolo alla velocità desiderata.
+
+[output 4]
+[
+    Tue Jul 11 12:01:26 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:26 2023: Current Speed: 50 - Target Speed: 40
+    Tue Jul 11 12:01:26 2023:FRENO 5
+    Tue Jul 11 12:01:27 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:27 2023: Current Speed: 45 - Target Speed: 40
+    Tue Jul 11 12:01:27 2023:FRENO 5
+    Tue Jul 11 12:01:28 2023: ECU received 40 (3 nbytes) from camera
+    Tue Jul 11 12:01:28 2023: Current Speed: 40 - Target Speed: 40
+]
+
+[brake.log 1]
+[
+    Tue Jul 11 12:01:26 2023:FRENO 5
+    Tue Jul 11 12:01:27 2023:FRENO 5
+]
+
+[camera.log 2]
+[
+    Tue Jul 11 12:01:26 2023:40
+    Tue Jul 11 12:01:27 2023:40
+    Tue Jul 11 12:01:28 2023:40
+    Tue Jul 11 12:01:29 2023:40
+]
+
+[ECU.log 2]
+[
+    Tue Jul 11 12:01:19 2023:INCREMENTO 5
+    Tue Jul 11 12:01:26 2023:FRENO 5
+    Tue Jul 11 12:01:27 2023:FRENO 5
+    Tue Jul 11 12:01:30 2023:INCREMENTO 5
+]
+
+In questo caso la velocità corrente è 50, ma la velocità target è 40, in questo caso ECU invia dunque comandi FRENO 5 a
+BRAKE_BY_WIRE al fine di rallentare il veicolo fino a porlo alla velocità desiderata.
+
+[output 5]
+[
+    Tue Jul 11 12:01:51 2023: ECU received DESTRA (7 nbytes) from camera
+    Tue Jul 11 12:01:51 2023: Current Speed: 60 - Target Speed: 60
+    Tue Jul 11 12:01:51 2023:DESTRA
+]
+
+[steer.log 1]
+[
+    Tue Jul 11 12:01:50 2023:no action
+    Tue Jul 11 12:01:51 2023:no action
+    Tue Jul 11 12:01:52 2023:sto girando a destra
+    Tue Jul 11 12:01:53 2023:sto girando a destra
+    Tue Jul 11 12:01:54 2023:sto girando a destra
+    Tue Jul 11 12:01:55 2023:sto girando a destra
+    Tue Jul 11 12:01:56 2023:no action
+    Tue Jul 11 12:01:57 2023:no action
+]
+
+[ECU.log 3]
+[
+    Tue Jul 11 12:01:51 2023:DESTRA
+]
+
+Esempio di sterzata a destra. STEER_BY_WIRE annota sul log il compimento di tale azione per esattamente 4 secondi con la
+frequenza di 1 secondo.
+
+[output 6]
+[
+    Tue Jul 11 12:02:26 2023: ECU received SINISTRA (9 nbytes) from camera
+    Tue Jul 11 12:02:26 2023: Current Speed: 50 - Target Speed: 50
+    Tue Jul 11 12:02:26 2023:SINISTRA
+]
+
+[steer.log 2]
+[
+    Tue Jul 11 12:02:25 2023:no action
+    Tue Jul 11 12:02:26 2023:no action
+    Tue Jul 11 12:02:27 2023:sto girando a sinistra
+    Tue Jul 11 12:02:28 2023:sto girando a sinistra
+    Tue Jul 11 12:02:29 2023:sto girando a sinistra
+    Tue Jul 11 12:02:30 2023:sto girando a sinistra
+    Tue Jul 11 12:02:31 2023:no action
+    Tue Jul 11 12:02:32 2023:no action
+]
+
+[ECU.log 4]
+[
+    Tue Jul 11 12:02:26 2023:SINISTRA
+]
+
+Esempio di sterzata a sinistra. Situazione analoga all'esempio precedente.
+
+[output 7]
+[
+    Tue Jul 11 12:03:06 2023: Current Speed: 70 - Target Speed: 70
+    Tue Jul 11 12:03:07 2023: ECU received PERICOLO (9 nbytes) from camera
+    Tue Jul 11 12:03:07 2023:PERICOLO
+    Tue Jul 11 12:03:07 2023: Current Speed: 0 - Target Speed: 70
+    Tue Jul 11 12:03:19 2023: ECU received INIZIO (7 nbytes) from input
+    Tue Jul 11 12:03:19 2023:INCREMENTO 5
+]
+
+[camera.log 3]
+[
+    Tue Jul 11 12:03:07 2023:PERICOLO
+]
+
+[ECU.log 5]
+[
+    Tue Jul 11 12:03:07 2023:PERICOLO
+]
+
+Esempio ricezione comando PERICOLO. Si può notare come la velocità del veicolo viene posta immediatamente pari a zero e
+che ECU ignora i sensori fino a che non riceve un comando INIZIO, a quel punto ricomincia la solita routine.
+Tale evento viene annotato nel log da ECU e FRONT_CAMERA.
+
+[output 8]
+[
+    Tue Jul 11 12:03:30 2023: Current Speed: 55 - Target Speed: 90
+    Tue Jul 11 12:03:30 2023: ECU received ARRESTO (8 nbytes) from input
+    Tue Jul 11 12:03:30 2023:ARRESTO
+    Tue Jul 11 12:03:31 2023:INCREMENTO 5
+    Tue Jul 11 12:03:31 2023: ECU received 90 (3 nbytes) from camera
+    Tue Jul 11 12:03:31 2023: Current Speed: 5 - Target Speed: 90
+]
+
+[ECU.log 6]
+[
+    Tue Jul 11 12:03:30 2023:ARRESTO
+]
+
+Esempio ricezione comando ARRESTO. La velocità del veicolo viene immediatamente posta uguale a zero.
+Tale evento viene annotato nel log da ECU.
+
+[output 9]
+[
+    Tue Jul 11 12:03:51 2023: Current Speed: 90 - Target Speed: 90
+    Tue Jul 11 12:03:52 2023: ECU received PARCHEGGIO (11 nbytes) from input
+    Tue Jul 11 12:03:52 2023:FRENO 5
+    Tue Jul 11 12:03:53 2023:FRENO 5
+    Tue Jul 11 12:03:54 2023:FRENO 5
+    Tue Jul 11 12:03:55 2023:FRENO 5
+    Tue Jul 11 12:03:56 2023:FRENO 5
+    Tue Jul 11 12:03:57 2023:FRENO 5
+    Tue Jul 11 12:03:58 2023:FRENO 5
+    Tue Jul 11 12:03:59 2023:FRENO 5
+    Tue Jul 11 12:04:00 2023:FRENO 5
+    Tue Jul 11 12:04:01 2023:FRENO 5
+    Tue Jul 11 12:04:02 2023:FRENO 5
+    Tue Jul 11 12:04:03 2023:FRENO 5
+    Tue Jul 11 12:04:04 2023:FRENO 5
+    Tue Jul 11 12:04:05 2023:FRENO 5
+    Tue Jul 11 12:04:06 2023:FRENO 5
+    Tue Jul 11 12:04:07 2023:FRENO 5
+    Tue Jul 11 12:04:08 2023:FRENO 5
+    Tue Jul 11 12:04:09 2023:FRENO 5
+    Tue Jul 11 12:04:10 2023: Current speed: 0. Il veicolo è fermo.
+    Tue Jul 11 12:04:15 2023: ECU avvia la routine di parcheggio.
+    Tue Jul 11 12:04:15 2023:PARCHEGGIO
+    Tue Jul 11 12:04:45 2023:terminazione esecuzione
+]
+
+[assist.log 1]
+[
+    Tue Jul 11 12:04:16 2023:0x7087cc1d369636b7
+    Tue Jul 11 12:04:17 2023:0xf9c1ea5348810977
+    Tue Jul 11 12:04:18 2023:0x4943b5b623513d8c
+    Tue Jul 11 12:04:19 2023:0xd1515aadb7cc6371
+    [.....]
+    Tue Jul 11 12:04:41 2023:0xf50f259515bf001
+    Tue Jul 11 12:04:42 2023:0x8779c362db063ee3
+    Tue Jul 11 12:04:43 2023:0xfb64184efde68024
+    Tue Jul 11 12:04:44 2023:0xc04396ce2726b31d
+]
+
+[cameras.log 1]
+[
+    Tue Jul 11 12:04:15 2023:0x42c6fa66ac5574af
+    Tue Jul 11 12:04:16 2023:0xc95f854505190dd
+    Tue Jul 11 12:04:17 2023:0x8660710b8c214b05
+    Tue Jul 11 12:04:18 2023:0x681deaf5d7f79215
+    [...]
+    Tue Jul 11 12:04:42 2023:0x68bc603068b55e99
+    Tue Jul 11 12:04:43 2023:0xef25c156bd512209
+    Tue Jul 11 12:04:44 2023:0x3ffe611a24e84017
+    Tue Jul 11 12:04:45 2023:0x3eaac21d3471b8c8
+]
+
+[ECU.log 7]
+[
+    Tue Jul 11 12:03:52 2023:FRENO 5
+    Tue Jul 11 12:03:53 2023:FRENO 5
+    Tue Jul 11 12:03:54 2023:FRENO 5
+    Tue Jul 11 12:03:55 2023:FRENO 5
+    Tue Jul 11 12:03:56 2023:FRENO 5
+    Tue Jul 11 12:03:57 2023:FRENO 5
+    Tue Jul 11 12:03:58 2023:FRENO 5
+    Tue Jul 11 12:03:59 2023:FRENO 5
+    Tue Jul 11 12:04:00 2023:FRENO 5
+    Tue Jul 11 12:04:01 2023:FRENO 5
+    Tue Jul 11 12:04:02 2023:FRENO 5
+    Tue Jul 11 12:04:03 2023:FRENO 5
+    Tue Jul 11 12:04:04 2023:FRENO 5
+    Tue Jul 11 12:04:05 2023:FRENO 5
+    Tue Jul 11 12:04:06 2023:FRENO 5
+    Tue Jul 11 12:04:07 2023:FRENO 5
+    Tue Jul 11 12:04:08 2023:FRENO 5
+    Tue Jul 11 12:04:09 2023:FRENO 5
+    Tue Jul 11 12:04:15 2023:PARCHEGGIO
+    Tue Jul 11 12:04:45 2023:terminazione esecuzione
+]
+
+Esempio ricezione comando PARCHEGGIO. ECU termina la routine di servizio richieste ed invia comandi FRENO 5 a BRAKE_BY_WIRE finchè
+il veicolo non è fermo. Viene avviata la procedura di parcheggio: ECU annota la ricezione e l'invio del comando PARCHEGGIO, mentre
+PARK_ASSIST e SORROUND_VIEW_CAMERAS annotano ogni dato letto ed inviato ad ECU per un tempo pari a 30 secondi. Alla scadere
+di questi 30 secondi termina l'esecuzione del programma.

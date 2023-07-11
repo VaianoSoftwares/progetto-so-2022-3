@@ -34,30 +34,30 @@ static int veh_speed_fd;
 static struct pollfd pfds[N_CONN] = {0};
 static pid_t comp_pids[N_CONN] = {0};
 
-void create_components();
-void wait_children();
-void kill_all_children();
-void kill_all_components();
-int central_ECU();
-void steer_by_wire();
-void throttle_control();
-void brake_by_wire();
-void front_windshield_camera();
-void forward_facing_radar();
-void park_assist();
-void sorround_view_cameras();
+void create_components(void);
+void wait_children(void);
+void kill_all_children(void);
+void kill_all_components(void);
+int central_ECU(void);
+void steer_by_wire(void);
+void throttle_control(void);
+void brake_by_wire(void);
+void front_windshield_camera(void);
+void forward_facing_radar(void);
+void park_assist(void);
+void sorround_view_cameras(int client_fd);
 bool read_and_send_hex(int sock_fd, int data_fd, FILE *log_fp);
 bool read_has_failed(ssize_t return_value);
-char *timestamp();
+char *timestamp(void);
 int timer_sec_passed(clock_t timer);
-bool throttle_is_broken();
+bool throttle_is_broken(void);
 void broken_throttle_handler(int sig);
 void stop_vehicle_by_brake(int sig);
 void ECU_listener(int server_fd);
-int create_ECU_server();
+int create_ECU_server(void);
 void ECU_serve_req(FILE *log_fp);
-void ECU_enable_components();
-void ECU_disable_components();
+void ECU_enable_components(void);
+void ECU_disable_components(void);
 void ECU_stop_vehicle(FILE *log_fp);
 void ECU_parking(int server_fd, FILE *log_fp);
 void send_parking_cmd(int client_fd, FILE *log_fp);
@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
     else
         throw_err("MAIN | invalid exec_mode");
 
+    printf("%.24s: Programma avviato in modalita' %s\n", timestamp(), argv[1]);
+
     // assegnazione random seed generator
     srand(time(NULL));
 
@@ -86,7 +88,7 @@ int main(int argc, char *argv[])
 }
 
 // routine principale di CENTRAL_ECU server
-int central_ECU()
+int central_ECU(void)
 {
     // creazione folder log
     mkdir(LOG_DIR, 0777);
@@ -113,6 +115,8 @@ int central_ECU()
     // creazione server
     const int server_fd = create_ECU_server();
 
+    printf("%.24s: ECU server in ascolto.\n", timestamp());
+
     // in attesa che tutti i componenti siano connessi al server
     ECU_listener(server_fd);
 
@@ -121,11 +125,16 @@ int central_ECU()
     if (!log_fp)
         throw_err("central_ECU | fopen");
 
+    printf("%.24s: Tutti i componenti sono connessi al server.\n", timestamp());
+    printf("%.24s: ECU avvia la routine di servizio richieste dei client.\n", timestamp());
+
     // routine di gestione componenti
     ECU_serve_req(log_fp);
 
     // imposta la velocità a 0
     ECU_stop_vehicle(log_fp);
+
+    printf("%.24s: Current speed: %d. Il veicolo è fermo.\n", timestamp(), *veh_speed);
 
     // terminazione di tutti i componenti
     kill_all_components();
@@ -137,11 +146,17 @@ int central_ECU()
     if (shm_unlink(SHM_NAME) == -1)
         throw_err("central_ECU | shm_unlink");
 
+    printf("%.24s: ECU avvia la routine di parcheggio.\n", timestamp());
+
     // routine di gestione di PARK_ASSIST
     ECU_parking(server_fd, log_fp);
 
     // terminazione di tutti i componenti
     kill_all_children();
+
+    fprintf(log_fp, "%.24s:terminazione esecuzione\n", timestamp());
+    fclose(log_fp);
+    printf("%.24s:terminazione esecuzione\n", timestamp());
 
     unlink(SERVER_NAME);
 
@@ -149,7 +164,7 @@ int central_ECU()
 }
 
 // creazione processi componenti
-void create_components()
+void create_components(void)
 {
     pid_t pid;
 
@@ -206,7 +221,7 @@ void create_components()
 }
 
 // creazione ECU server socket
-int create_ECU_server()
+int create_ECU_server(void)
 {
     struct sockaddr_un server_addr;
     struct sockaddr *server_addr_ptr = (struct sockaddr *)&server_addr;
@@ -293,6 +308,8 @@ void ECU_listener(int server_fd)
         default:
             pfds[client_component].events = 0;
         }
+
+        printf("%.24s: ECU ha stabilito connessione con componente %d\n", timestamp(), client_component);
     }
 }
 
@@ -336,6 +353,8 @@ void ECU_serve_req(FILE *log_fp)
                 else if (n_bytes_read <= 0)
                     break;
 
+                printf("%.24s: ECU received %s (%ld nbytes) from input\n", timestamp(), str_buf, n_bytes_read);
+
                 // comando è INIZIO, i componenti vengono abilitati
                 if (!strcmp(str_buf, START_CMD))
                     ECU_enable_components();
@@ -353,8 +372,6 @@ void ECU_serve_req(FILE *log_fp)
                     fflush(log_fp);
                     printf("%.24s:" STOP_CMD "\n", timestamp());
                 }
-
-                printf("ECU received %s (%ld nbytes) from input\n", str_buf, n_bytes_read);
 
                 break;
             case CMP_STEER_BY_WIRE:
@@ -418,6 +435,8 @@ void ECU_serve_req(FILE *log_fp)
                 else if (n_bytes_read <= 0)
                     break;
 
+                printf("%.24s: ECU received %s (%ld nbytes) from camera\n", timestamp(), str_buf, n_bytes_read);
+
                 // comando è DESTRA
                 if (!strcmp(str_buf, STEER_CMDS[SS_RIGHT]))
                     target_steer = SS_RIGHT;
@@ -444,8 +463,7 @@ void ECU_serve_req(FILE *log_fp)
                 else
                     sscanf(str_buf, "%hu", &target_speed);
 
-                printf("ECU received %s (%ld nbytes) from camera\n", str_buf, n_bytes_read);
-                printf("Current Speed: %hu - Target Speed: %hu\n", *veh_speed, target_speed);
+                printf("%.24s: Current Speed: %hu - Target Speed: %hu\n", timestamp(), *veh_speed, target_speed);
 
                 break;
             case CMP_RADAR:
@@ -461,7 +479,7 @@ void ECU_serve_req(FILE *log_fp)
 }
 
 // ECU server abilita il polling per tutti i client
-void ECU_enable_components()
+void ECU_enable_components(void)
 {
     for (int i = 1; i < N_CONN; i++)
     {
@@ -470,7 +488,7 @@ void ECU_enable_components()
 }
 
 // ECU server ignora tutti i clienti tranne INPUT durante il polling
-void ECU_disable_components()
+void ECU_disable_components(void)
 {
     for (int i = 1; i < N_CONN; i++)
     {
@@ -568,7 +586,7 @@ void send_parking_cmd(int client_fd, FILE *log_fp)
 
 // attuatore il quale ogni volta riceve un comando da ECU
 // egli sterzerà il veicolo a destra o sinistra e loggerà tale evento
-void steer_by_wire()
+void steer_by_wire(void)
 {
     static const char *steer_log_msgs[] = {"sto girando a destra",
                                            "sto girando a sinistra",
@@ -593,31 +611,28 @@ void steer_by_wire()
         n_bytes_read = recv(client_fd, res_buf, sizeof(res_buf), 0);
         if (read_has_failed(n_bytes_read))
             throw_err("steer_by_wire | recv");
-        else if (n_bytes_read <= 0)
-            continue;
 
         // stato sterzata può essere aggiornato ogni 4 sec
         if (timer_sec_passed(steer_timer) >= STEER_TIMEOUT)
         {
-            // assegnazione stato corrente di steer_by_wire
-            if (!strcmp(res_buf, STEER_CMDS[SS_RIGHT]))
+            steer_action = SS_NO_ACTION;
+
+            // comando sterzare a destra
+            if (n_bytes_read > 0 && !strcmp(res_buf, STEER_CMDS[SS_RIGHT]))
             {
                 // aggiornamento timer, sarà possibile riaccedere a questa routine
                 // tra minimo 4 secondi
                 steer_timer = clock();
-
                 steer_action = SS_RIGHT;
             }
-            else if (!strcmp(res_buf, STEER_CMDS[SS_LEFT]))
+            // comando sterzare a sinistra
+            else if (n_bytes_read > 0 && !strcmp(res_buf, STEER_CMDS[SS_LEFT]))
             {
                 // aggiornamento timer, sarà possibile riaccedere a questa routine
                 // tra minimo 4 secondi
                 steer_timer = clock();
-
                 steer_action = SS_LEFT;
             }
-            else
-                steer_action = SS_NO_ACTION;
         }
 
         // aggiornamento log ogni secondo
@@ -639,7 +654,7 @@ void steer_by_wire()
 
 // attuatore il quale ogni volta riceve un comando da ECU
 // egli andrà ad incrementare la velocità del veicolo
-void throttle_control()
+void throttle_control(void)
 {
     // apertura file di log
     FILE *log_fp = fopen(THROTTLE_CONTROL_LOG, "w");
@@ -690,7 +705,7 @@ void throttle_control()
 
 // attuatore il quale ogni volta riceve un comando da ECU
 // egli andrà a ridurre la velocità del veicolo
-void brake_by_wire()
+void brake_by_wire(void)
 {
     // apertura file di log
     FILE *log_fp = fopen(BRAKE_BY_WIRE_LOG, "w");
@@ -735,7 +750,7 @@ void brake_by_wire()
 
 // sensore che legge da un file una serie di possibili comandi
 // e li invia ad ECU
-void front_windshield_camera()
+void front_windshield_camera(void)
 {
     // apertura file di log
     FILE *log_fp = fopen(FRONT_CAMERA_LOG, "w");
@@ -783,7 +798,7 @@ void front_windshield_camera()
 }
 
 // sensore che legge ed invia 8 byte ad ECU
-void forward_facing_radar()
+void forward_facing_radar(void)
 {
     // apertura file di log
     FILE *log_fp = fopen(RADAR_LOG, "w");
@@ -816,7 +831,7 @@ void forward_facing_radar()
 // legge ed invia 8 byte ogni secondo ad ECU per 30 secondi
 // allo scadere dei quali termina almeno che non riceva un comando PARCHEGGIO
 // da ECU, in tal caso il timer viene resettato
-void park_assist()
+void park_assist(void)
 {
     // apertura file di log
     FILE *log_fp = fopen(PARK_ASSIST_LOG, "w");
@@ -944,14 +959,14 @@ bool read_and_send_hex(int sock_fd, int data_fd, FILE *log_fp)
 }
 
 // processo padre attende la terminazione dei figli
-void wait_children()
+void wait_children(void)
 {
     while (waitpid(0, NULL, 0) > 0)
         sleep(1);
 }
 
 // ammazza tutti i processi figlio del processo invocante
-void kill_all_children()
+void kill_all_children(void)
 {
     // processo padre ignora SIGQUIT
     signal(SIGQUIT, SIG_IGN);
@@ -966,7 +981,7 @@ void kill_all_children()
 
 // dato l'elenco dei pid dei componenti (figli di ECU)
 // si procede a inviare SIGKILL a quest'ultimi ed attende la loro terminazione
-void kill_all_components()
+void kill_all_components(void)
 {
     for (int i = 0; i < N_CONN; i++)
     {
@@ -1001,7 +1016,7 @@ int timer_sec_passed(clock_t timer)
 }
 
 // funzione con la probabilità di 1/10^5 che ritorni vero
-bool throttle_is_broken()
+bool throttle_is_broken(void)
 {
     return !(rand() % PROB_BROKEN_THROTTLE);
 }
